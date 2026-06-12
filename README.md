@@ -222,14 +222,94 @@ Add to your `claude_desktop_config.json`:
 
 > **Note:** `--allow-http` is required for non-localhost HTTP URLs. Pin the `mcp-remote` version (e.g. `0.1.38`) to avoid silent breaking updates.
 
-This exposes four tools to the AI:
+This exposes six tools to the AI:
 
 | Tool | Description |
 |---|---|
 | `read_note` | Read a note by vault-relative path |
 | `write_note` | Create or overwrite a note |
 | `list_notes` | List all `.md` files, optionally scoped to a folder |
-| `search_notes` | Full-text search across all notes |
+| `search_notes` | Keyword search across all notes |
+| `semantic_search` | Embedding-based search — finds related notes by meaning, not just keywords |
+| `capture_note` | Auto-capture information to the Inbox with timestamp and frontmatter |
+
+---
+
+## Semantic search (Ollama)
+
+Semantic search uses local embeddings to find notes by meaning rather than exact keywords — useful for queries like "what do I know about burnout?" even if none of your notes use that word.
+
+### Setup
+
+1. **Install Ollama** on the same machine as the server: [ollama.com](https://ollama.com)
+
+2. **Pull an embedding model:**
+   ```bash
+   ollama pull nomic-embed-text
+   ```
+   `nomic-embed-text` (274 MB) is a good default. `mxbai-embed-large` gives higher quality at ~670 MB.
+
+3. **Start Ollama** (runs automatically as a service on most installs):
+   ```bash
+   ollama serve
+   ```
+
+4. **Start your Memory Brain server** — it will build the embedding index in the background on startup. Depending on vault size, first-time indexing may take a minute or two. Progress is logged to the console.
+
+The index is cached to `.embeddings-cache.json` next to your vault folder. Only changed files are re-embedded on subsequent startups.
+
+### Environment variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `OLLAMA_HOST` | `http://localhost:11434` | Ollama API URL |
+| `EMBED_MODEL` | `nomic-embed-text` | Ollama model to use for embeddings |
+
+### Graph UI
+
+The search box gains a **Keyword / Semantic** toggle below it. In semantic mode, results are fetched from `/search/semantic` and the matching nodes are highlighted in the graph exactly as with keyword search.
+
+### Graceful degradation
+
+If Ollama is not running, keyword search and all other features continue to work normally. Semantic search returns an "unavailable" message rather than crashing the server.
+
+### Rebuild the index manually
+
+```bash
+curl -X POST http://YOUR_SERVER:3000/search/rebuild
+```
+
+Useful after bulk-importing notes.
+
+---
+
+## Automatic capture
+
+The `capture_note` MCP tool lets Claude proactively save information to your vault Inbox during conversations — without you having to ask.
+
+Notes are written to `00 - Inbox/` with a datestamp filename and YAML frontmatter:
+
+```markdown
+---
+date: 2026-06-12
+type: memory
+tags: ["project", "decision"]
+captured: true
+---
+# Title
+
+Content here.
+```
+
+### Configuring Claude to capture automatically
+
+Copy the instructions from `CLAUDE.md` in the root of this repo into your Claude Desktop system prompt (Settings → Claude.ai → Custom Instructions) or your project's own `CLAUDE.md`. This tells Claude when and how to use `capture_note` without being explicitly asked.
+
+Key guidance from that file:
+- Capture facts, decisions, ideas, action items, and new knowledge
+- Write self-contained notes that make sense without the conversation
+- Batch related points into one note rather than fragmenting them
+- Don't capture dead-end troubleshooting or information the user obviously already has
 
 ---
 

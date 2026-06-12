@@ -22,7 +22,11 @@
   #search { position: fixed; top: 60px; left: 26px; z-index: 10; width: 210px; background: rgba(8,7,24,0.55); border: 1px solid rgba(200,216,240,0.12); border-radius: 8px; padding: 7px 11px; color: rgba(240,244,255,0.9); font-family: 'SF Mono', 'Fira Code', monospace; font-size: 10px; letter-spacing: 0.08em; outline: none; transition: border-color 0.15s; }
   #search:focus { border-color: rgba(125,216,255,0.45); }
   #search::placeholder { color: rgba(200,216,240,0.2); text-transform: uppercase; letter-spacing: 0.14em; }
-  #searchcount { position: fixed; top: 90px; left: 30px; z-index: 10; font-size: 8px; letter-spacing: 0.14em; color: rgba(200,216,240,0.3); text-transform: uppercase; height: 10px; }
+  #searchcount { position: fixed; top: 122px; left: 30px; z-index: 10; font-size: 8px; letter-spacing: 0.14em; color: rgba(200,216,240,0.3); text-transform: uppercase; height: 10px; }
+  #search-mode { position: fixed; top: 97px; left: 26px; z-index: 10; display: flex; gap: 5px; }
+  .sm-opt { font-size: 7px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(200,216,240,0.18); cursor: pointer; padding: 3px 8px; border-radius: 3px; border: 1px solid transparent; transition: all 0.15s; user-select: none; }
+  .sm-opt.active { color: rgba(200,216,240,0.5); border-color: rgba(200,216,240,0.14); }
+  .sm-opt:hover:not(.active) { color: rgba(200,216,240,0.32); }
   #synapse-ctrl { position: fixed; bottom: 110px; right: 26px; z-index: 10; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
   #synapse-ctrl label { font-size: 8px; letter-spacing: 0.12em; color: rgba(200,216,240,0.18); text-transform: uppercase; cursor: default; }
   #synapse-row { display: flex; align-items: center; gap: 7px; }
@@ -36,6 +40,10 @@
 <canvas id="galaxy"></canvas>
 <div id="header"><h1>Memory Brain</h1><p>Live Vault Graph &middot; 3D</p></div>
 <input id="search" type="text" placeholder="Search nodes&hellip;" autocomplete="off" spellcheck="false">
+<div id="search-mode">
+  <span class="sm-opt active" data-mode="keyword">Keyword</span>
+  <span class="sm-opt" data-mode="semantic">Semantic</span>
+</div>
 <div id="searchcount"></div>
 <div id="stats"><div>Nodes <span id="sn">&mdash;</span></div><div>Links <span id="sl">&mdash;</span></div></div>
 <div id="legend">
@@ -347,9 +355,20 @@ async function init() {
     Graph.linkOpacity(v / 10 * 0.85);
   });
 
-  // --- Search: highlight matching nodes, Enter flies the camera to the first match ---
-  const searchBox = document.getElementById('search');
+  // --- Search ---
+  const searchBox   = document.getElementById('search');
   const searchCount = document.getElementById('searchcount');
+  let searchMode    = 'keyword';
+
+  document.getElementById('search-mode').addEventListener('click', e => {
+    const btn = e.target.closest('.sm-opt');
+    if (!btn) return;
+    searchMode = btn.dataset.mode;
+    document.querySelectorAll('.sm-opt').forEach(el => el.classList.toggle('active', el.dataset.mode === searchMode));
+    searchBox.placeholder = searchMode === 'semantic' ? 'Semantic search…' : 'Search nodes…';
+    if (!searchBox.value.trim()) return;
+    searchMode === 'semantic' ? debouncedSemantic(searchBox.value.trim()) : doKeywordSearch(searchBox.value.trim());
+  });
 
   function matchesFor(q) {
     return nodes.filter(n => (n.label || n.id || '').toLowerCase().includes(q));
@@ -364,16 +383,45 @@ async function init() {
     Graph.cameraPosition({ x: (node.x || 0) * ratio, y: (node.y || 0) * ratio, z: (node.z || 0) * ratio }, node, 1400);
   }
 
-  searchBox.addEventListener('input', () => {
-    const q = searchBox.value.trim().toLowerCase();
+  function doKeywordSearch(raw) {
+    const q = raw.toLowerCase();
     if (!q) { highlight = null; searchCount.textContent = ''; refresh(); return; }
     const matched = matchesFor(q);
     highlight = new Set(matched.map(n => n.id));
     searchCount.textContent = matched.length + (matched.length === 1 ? ' match' : ' matches');
     refresh();
+  }
+
+  function debounce(fn, ms) {
+    let t;
+    return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+  }
+
+  async function doSemanticSearch(q) {
+    if (!q) { highlight = null; searchCount.textContent = ''; refresh(); return; }
+    searchCount.textContent = 'searching…';
+    try {
+      const res  = await fetch('http://' + location.hostname + ':3000/search/semantic?q=' + encodeURIComponent(q) + '&limit=15');
+      const data = await res.json();
+      if (data.error) { searchCount.textContent = data.error; return; }
+      highlight = new Set(data.map(r => r.id));
+      searchCount.textContent = data.length + (data.length === 1 ? ' match' : ' matches');
+      refresh();
+    } catch {
+      searchCount.textContent = 'semantic search unavailable';
+    }
+  }
+
+  const debouncedSemantic = debounce(doSemanticSearch, 420);
+
+  searchBox.addEventListener('input', () => {
+    const q = searchBox.value.trim();
+    if (searchMode === 'semantic') { debouncedSemantic(q); return; }
+    doKeywordSearch(q);
   });
   searchBox.addEventListener('keydown', e => {
     if (e.key === 'Enter') {
+      if (searchMode === 'semantic') { doSemanticSearch(searchBox.value.trim()); return; }
       const m = matchesFor(searchBox.value.trim().toLowerCase())[0];
       if (m) flyTo(m);
     } else if (e.key === 'Escape') {
