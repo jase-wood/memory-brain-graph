@@ -255,6 +255,7 @@ async function init() {
     const target = nodes.find(n => n.isFolder && n.type === type)
                 || nodes.find(n => n.type === type);
     if (!target) return;
+    lastInteraction = Date.now(); // pause auto-rotation during the fly
     highlight = neighbors[target.id] || new Set([target.id]);
     refresh();
     flyTo(target);
@@ -305,22 +306,20 @@ async function init() {
 
   // Auto-rotation: slowly orbit the camera around the Y axis.
   // Pauses 2 seconds after any user interaction, then resumes from wherever the camera is.
-  (function() {
-    let lastInteraction = 0;
-    const el = document.getElementById('graph');
-    ['mousedown', 'wheel', 'touchstart'].forEach(ev =>
-      el.addEventListener(ev, () => { lastInteraction = Date.now(); }, { passive: true })
-    );
-    setInterval(() => {
-      if (Date.now() - lastInteraction < 2000) return;
-      const cam = Graph.camera();
-      const { x, y, z } = cam.position;
-      const dist = Math.sqrt(x * x + z * z);
-      if (dist < 1) return;
-      const theta = Math.atan2(x, z) + 0.001;
-      Graph.cameraPosition({ x: dist * Math.sin(theta), y, z: dist * Math.cos(theta) });
-    }, 16);
-  })();
+  let lastInteraction = 0;
+  const graphEl = document.getElementById('graph');
+  ['mousedown', 'wheel', 'touchstart'].forEach(ev =>
+    graphEl.addEventListener(ev, () => { lastInteraction = Date.now(); }, { passive: true })
+  );
+  setInterval(() => {
+    if (Date.now() - lastInteraction < 2000) return;
+    const cam = Graph.camera();
+    const { x, y, z } = cam.position;
+    const dist = Math.sqrt(x * x + z * z);
+    if (dist < 1) return;
+    const theta = Math.atan2(x, z) + 0.001;
+    Graph.cameraPosition({ x: dist * Math.sin(theta), y, z: dist * Math.cos(theta) });
+  }, 16);
 
   window.addEventListener('resize', () => Graph.width(window.innerWidth).height(window.innerHeight));
 
