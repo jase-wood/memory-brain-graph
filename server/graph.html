@@ -15,8 +15,10 @@
   #stats { position: fixed; top: 22px; right: 26px; z-index: 10; text-align: right; font-size: 8px; letter-spacing: 0.12em; color: rgba(200,216,240,0.15); text-transform: uppercase; line-height: 2.2; }
   #stats span { color: rgba(200,216,240,0.35); }
   #legend { position: fixed; bottom: 22px; left: 26px; z-index: 10; display: flex; flex-direction: column; gap: 9px; }
-  .lg-item { display: flex; align-items: center; gap: 9px; font-size: 9px; letter-spacing: 0.1em; color: rgba(200,216,240,0.25); text-transform: uppercase; }
-  .lg-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; opacity: 0.7; }
+  .lg-item { display: flex; align-items: center; gap: 9px; font-size: 9px; letter-spacing: 0.1em; color: rgba(200,216,240,0.25); text-transform: uppercase; cursor: pointer; transition: color 0.15s; }
+  .lg-item:hover { color: rgba(200,216,240,0.6); }
+  .lg-item:hover .lg-dot { opacity: 1; }
+  .lg-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; opacity: 0.7; transition: opacity 0.15s; }
   #controls { position: fixed; bottom: 22px; right: 26px; z-index: 10; font-size: 8px; letter-spacing: 0.06em; color: rgba(200,216,240,0.12); text-align: right; line-height: 2.2; text-transform: uppercase; }
   #loading { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 11px; letter-spacing: 0.28em; color: rgba(200,216,240,0.25); text-transform: uppercase; z-index: 20; }
   #search { position: fixed; top: 60px; left: 26px; z-index: 10; width: 210px; background: rgba(8,7,24,0.55); border: 1px solid rgba(200,216,240,0.12); border-radius: 8px; padding: 7px 11px; color: rgba(240,244,255,0.9); font-family: 'SF Mono', 'Fira Code', monospace; font-size: 10px; letter-spacing: 0.08em; outline: none; transition: border-color 0.15s; }
@@ -47,17 +49,17 @@
 <div id="searchcount"></div>
 <div id="stats"><div>Nodes <span id="sn">&mdash;</span></div><div>Links <span id="sl">&mdash;</span></div></div>
 <div id="legend">
-  <div class="lg-item"><div class="lg-dot" style="background:#ffe680;box-shadow:0 0 5px #ffcc00;width:10px;height:10px;border-radius:50%;"></div>Person &mdash; Sun</div>
-  <div class="lg-item"><div class="lg-dot" style="background:#7dd8ff"></div>Memory</div>
-  <div class="lg-item"><div class="lg-dot" style="background:#ffd080"></div>Project</div>
-  <div class="lg-item"><div class="lg-dot" style="background:#72e8c4"></div>Topic</div>
-  <div class="lg-item"><div class="lg-dot" style="background:#cc78ff"></div>Idea</div>
-  <div class="lg-item"><div class="lg-dot" style="background:#e060cc"></div>Client</div>
-  <div class="lg-item"><div class="lg-dot" style="background:#c0e840"></div>Tool</div>
-  <div class="lg-item"><div class="lg-dot" style="background:#f0e040"></div>Learning</div>
-  <div class="lg-item"><div class="lg-dot" style="background:#5870f8"></div>Infra</div>
-  <div class="lg-item"><div class="lg-dot" style="background:#f07830"></div>Script</div>
-  <div class="lg-item"><div class="lg-dot" style="background:#f05060"></div>Task</div>
+  <div class="lg-item" data-type="person"><div class="lg-dot" style="background:#ffe680;box-shadow:0 0 5px #ffcc00;width:10px;height:10px;border-radius:50%;"></div>Person &mdash; Sun</div>
+  <div class="lg-item" data-type="memory"><div class="lg-dot" style="background:#7dd8ff"></div>Memory</div>
+  <div class="lg-item" data-type="project"><div class="lg-dot" style="background:#ffd080"></div>Project</div>
+  <div class="lg-item" data-type="topic"><div class="lg-dot" style="background:#72e8c4"></div>Topic</div>
+  <div class="lg-item" data-type="idea"><div class="lg-dot" style="background:#cc78ff"></div>Idea</div>
+  <div class="lg-item" data-type="client"><div class="lg-dot" style="background:#e060cc"></div>Client</div>
+  <div class="lg-item" data-type="tool"><div class="lg-dot" style="background:#c0e840"></div>Tool</div>
+  <div class="lg-item" data-type="learning"><div class="lg-dot" style="background:#f0e040"></div>Learning</div>
+  <div class="lg-item" data-type="infra"><div class="lg-dot" style="background:#5870f8"></div>Infra</div>
+  <div class="lg-item" data-type="script"><div class="lg-dot" style="background:#f07830"></div>Script</div>
+  <div class="lg-item" data-type="task"><div class="lg-dot" style="background:#f05060"></div>Task</div>
 </div>
 <div id="synapse-ctrl">
   <label for="synapse-range">Synapse</label>
@@ -244,6 +246,19 @@ async function init() {
       .linkWidth(Graph.linkWidth())
       .linkDirectionalParticleWidth(Graph.linkDirectionalParticleWidth());
   }
+
+  // Legend click → fly to the folder core for that type
+  document.getElementById('legend').addEventListener('click', e => {
+    const item = e.target.closest('.lg-item');
+    if (!item) return;
+    const type = item.dataset.type;
+    const target = nodes.find(n => n.isFolder && n.type === type)
+                || nodes.find(n => n.type === type);
+    if (!target) return;
+    highlight = neighbors[target.id] || new Set([target.id]);
+    refresh();
+    flyTo(target);
+  });
 
   // Person (sun) nodes repel each other strongly so multiple suns space well apart
   Graph.d3Force('charge').strength(n => n.type === 'person' ? -500 : -120);
