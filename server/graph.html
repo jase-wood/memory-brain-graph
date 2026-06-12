@@ -252,13 +252,20 @@ async function init() {
     const item = e.target.closest('.lg-item');
     if (!item) return;
     const type = item.dataset.type;
-    const target = nodes.find(n => n.isFolder && n.type === type)
-                || nodes.find(n => n.type === type);
-    if (!target) return;
-    lastInteraction = Date.now(); // pause auto-rotation during the fly
-    highlight = neighbors[target.id] || new Set([target.id]);
+    const node = nodes.find(n => n.isFolder && n.type === type)
+              || nodes.find(n => n.type === type);
+    if (!node) return;
+    // Pause auto-rotation for long enough to cover the full transition + settle
+    lastInteraction = Date.now() + 3000;
+    highlight = neighbors[node.id] || new Set([node.id]);
     refresh();
-    flyTo(target);
+    const dist  = 160;
+    const ratio = 1 + dist / Math.hypot(node.x || 1, node.y || 1, node.z || 1);
+    Graph.cameraPosition(
+      { x: (node.x || 0) * ratio, y: (node.y || 0) * ratio, z: (node.z || 0) * ratio },
+      { x: node.x || 0, y: node.y || 0, z: node.z || 0 },
+      1400
+    );
   });
 
   // Person (sun) nodes repel each other strongly so multiple suns space well apart
