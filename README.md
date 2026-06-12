@@ -52,7 +52,7 @@ Your Obsidian Vault (markdown files)
 
 | Requirement | Notes |
 |---|---|
-| **Linux server** | Any machine on your network — bare metal, VM, LXC container, Raspberry Pi, VPS |
+| **Linux server** | See [Where to run the server](#where-to-run-the-server) below — bare metal, any hypervisor, VPS, Raspberry Pi, Docker, WSL2, etc. |
 | **Node.js 18+** | `node --version` to check |
 | **npm** | Comes with Node |
 | **An Obsidian vault** | Folder-based structure (see [Vault structure](#vault-structure) below) |
@@ -60,6 +60,25 @@ Your Obsidian Vault (markdown files)
 For the optional Electron app:
 - Windows 10/11
 - Node.js on the build machine
+
+---
+
+## Where to run the server
+
+The server is just a Node.js process — it has no dependency on any particular hypervisor, host OS, or infrastructure. Proxmox was used in the original build but is not required at all. Run it wherever Node.js runs:
+
+| Environment | Notes |
+|---|---|
+| **Bare metal Linux** | Simplest option — install Node, clone repo, done. |
+| **Any VM hypervisor** | Proxmox, VMware (Workstation / ESXi / vSphere), Microsoft Hyper-V, VirtualBox, QEMU/KVM — create a Linux VM (Ubuntu, Debian, etc.) and follow the server setup steps inside it. |
+| **LXC container** | Lightweight alternative to a full VM. Supported natively in Proxmox; also works with `lxc` on any Linux host. |
+| **Docker** | Run the server in a container — mount your vault as a volume. A `Dockerfile` is a natural next addition if you want one. |
+| **Raspberry Pi** | Works well on a Pi 3/4/5 running Raspberry Pi OS or Ubuntu. Keeps power draw minimal for an always-on home server. |
+| **VPS / cloud VM** | Any cloud provider (Hetzner, DigitalOcean, Linode, AWS EC2, etc.). Pair with Tailscale or a reverse proxy for remote access. |
+| **WSL2 (Windows)** | If you don't want a separate machine at all, run the server inside WSL2 on your Windows PC and point the Electron app at `localhost`. |
+| **macOS** | Works natively — just run `node index.js` in a terminal or set up a launchd service. |
+
+The only hard requirement is that the machine running the server can reach your vault files on disk. Everything else is flexible.
 
 ---
 
