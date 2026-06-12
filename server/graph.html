@@ -320,12 +320,15 @@ async function init() {
   );
   setInterval(() => {
     if (Date.now() - lastInteraction < 2000) return;
-    const cam = Graph.camera();
+    const cam      = Graph.camera();
+    const target   = Graph.controls().target; // orbit around whatever the camera is looking at
     const { x, y, z } = cam.position;
-    const dist = Math.sqrt(x * x + z * z);
+    const dx   = x - target.x;
+    const dz   = z - target.z;
+    const dist = Math.sqrt(dx * dx + dz * dz);
     if (dist < 1) return;
-    const theta = Math.atan2(x, z) + 0.001;
-    Graph.cameraPosition({ x: dist * Math.sin(theta), y, z: dist * Math.cos(theta) });
+    const theta = Math.atan2(dx, dz) + 0.001;
+    Graph.cameraPosition({ x: target.x + dist * Math.sin(theta), y, z: target.z + dist * Math.cos(theta) });
   }, 16);
 
   window.addEventListener('resize', () => Graph.width(window.innerWidth).height(window.innerHeight));
