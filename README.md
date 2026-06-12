@@ -241,6 +241,38 @@ Wiki-links (`[[Note Name]]`) in note content become graph edges automatically.
 
 ---
 
+## Obsidian integration
+
+**No Obsidian plugin is required.** The server reads your vault directly from the filesystem — it just walks the folder tree and parses `.md` files. Obsidian doesn't need to be open or running.
+
+### How it works
+
+1. The server scans `VAULT_PATH` recursively at each `/graph` request.
+2. Every folder becomes a node; every `.md` file becomes a node.
+3. `[[Wiki-link]]` syntax in note bodies is parsed with a regex and turned into graph edges.
+4. Folder names are matched against `typeMap` to assign a node type and colour.
+
+That's it — no plugins, no Obsidian API, no database. If a note is on disk, it appears in the graph within seconds of the next page load.
+
+### Getting your vault onto the server
+
+The server needs filesystem access to your vault. Common approaches:
+
+| Method | Notes |
+|---|---|
+| **Syncthing** | Free, self-hosted, works great on LXC/VMs. Set up a share between your desktop and server. |
+| **Obsidian Sync** | Official paid sync — you can sync to any device including a headless Linux server if you run Obsidian there once to log in. |
+| **iCloud / Dropbox / OneDrive** | If your server runs macOS or has a compatible client. |
+| **Git** | Use the [Obsidian Git](https://github.com/denolehov/obsidian-git) community plugin to auto-push, then pull on the server. |
+| **NFS / SMB share** | Mount your desktop's vault folder on the server directly. |
+| **Same machine** | If Obsidian and the server run on the same computer, just point `VAULT_PATH` at the vault folder. |
+
+### Live updates
+
+The server re-reads the vault on every `/graph` request — there's no watch daemon or caching. The browser graph auto-loads on page open, so you'll see the latest state every time you reload. For a live-updating view, refresh the page after making changes in Obsidian.
+
+---
+
 ## Customisation
 
 ### Node colours
