@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Memory Brain — Live Graph (3D)</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #04030e; font-family: 'SF Mono', 'Fira Code', monospace; color: #c8d8f0; overflow: hidden; width: 100vw; height: 100vh; }
+  #galaxy { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0; pointer-events: none; }
+  #graph { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
+  #header { position: fixed; top: 22px; left: 26px; z-index: 10; }
+  #header h1 { font-size: 12px; font-weight: 400; letter-spacing: 0.28em; color: rgba(220,228,255,0.5); text-transform: uppercase; }
+  #header p { font-size: 8px; letter-spacing: 0.14em; color: rgba(200,216,240,0.15); margin-top: 5px; text-transform: uppercase; }
+  #stats { position: fixed; top: 22px; right: 26px; z-index: 10; text-align: right; font-size: 8px; letter-spacing: 0.12em; color: rgba(200,216,240,0.15); text-transform: uppercase; line-height: 2.2; }
+  #stats span { color: rgba(200,216,240,0.35); }
+  #legend { position: fixed; bottom: 22px; left: 26px; z-index: 10; display: flex; flex-direction: column; gap: 9px; }
+  .lg-item { display: flex; align-items: center; gap: 9px; font-size: 9px; letter-spacing: 0.1em; color: rgba(200,216,240,0.25); text-transform: uppercase; }
+  .lg-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; opacity: 0.7; }
+  #controls { position: fixed; bottom: 22px; right: 26px; z-index: 10; font-size: 8px; letter-spacing: 0.06em; color: rgba(200,216,240,0.12); text-align: right; line-height: 2.2; text-transform: uppercase; }
+  #loading { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 11px; letter-spacing: 0.28em; color: rgba(200,216,240,0.25); text-transform: uppercase; z-index: 20; }
+  #search { position: fixed; top: 60px; left: 26px; z-index: 10; width: 210px; background: rgba(8,7,24,0.55); border: 1px solid rgba(200,216,240,0.12); border-radius: 8px; padding: 7px 11px; color: rgba(240,244,255,0.9); font-family: 'SF Mono', 'Fira Code', monospace; font-size: 10px; letter-spacing: 0.08em; outline: none; transition: border-color 0.15s; }
+  #search:focus { border-color: rgba(125,216,255,0.45); }
+  #search::placeholder { color: rgba(200,216,240,0.2); text-transform: uppercase; letter-spacing: 0.14em; }
+  #searchcount { position: fixed; top: 90px; left: 30px; z-index: 10; font-size: 8px; letter-spacing: 0.14em; color: rgba(200,216,240,0.3); text-transform: uppercase; height: 10px; }
+  #synapse-ctrl { position: fixed; bottom: 110px; right: 26px; z-index: 10; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  #synapse-ctrl label { font-size: 8px; letter-spacing: 0.12em; color: rgba(200,216,240,0.18); text-transform: uppercase; cursor: default; }
+  #synapse-row { display: flex; align-items: center; gap: 7px; }
+  #synapse-range { -webkit-appearance: none; appearance: none; width: 90px; height: 2px; background: rgba(200,216,240,0.12); border-radius: 1px; outline: none; cursor: pointer; }
+  #synapse-range::-webkit-slider-thumb { -webkit-appearance: none; width: 8px; height: 8px; border-radius: 50%; background: rgba(200,216,240,0.38); cursor: pointer; transition: background 0.15s; }
+  #synapse-range:hover::-webkit-slider-thumb { background: rgba(200,216,240,0.65); }
+  #synapse-val { font-size: 8px; letter-spacing: 0.1em; color: rgba(200,216,240,0.35); font-family: 'SF Mono','Fira Code',monospace; min-width: 10px; text-align: right; }
+</style>
+</head>
+<body>
+<canvas id="galaxy"></canvas>
+<div id="header"><h1>Memory Brain</h1><p>Live Vault Graph &middot; 3D</p></div>
+<input id="search" type="text" placeholder="Search nodes&hellip;" autocomplete="off" spellcheck="false">
+<div id="searchcount"></div>
+<div id="stats"><div>Nodes <span id="sn">&mdash;</span></div><div>Links <span id="sl">&mdash;</span></div></div>
+<div id="legend">
+  <div class="lg-item"><div class="lg-dot" style="background:#ffe680;box-shadow:0 0 5px #ffcc00;width:10px;height:10px;border-radius:50%;"></div>Person &mdash; Sun</div>
+  <div class="lg-item"><div class="lg-dot" style="background:#7dd8ff"></div>Memory</div>
+  <div class="lg-item"><div class="lg-dot" style="background:#ffd080"></div>Project</div>
+  <div class="lg-item"><div class="lg-dot" style="background:#72e8c4"></div>Topic</div>
+  <div class="lg-item"><div class="lg-dot" style="background:#cc78ff"></div>Idea</div>
+  <div class="lg-item"><div class="lg-dot" style="background:#e060cc"></div>Client</div>
+  <div class="lg-item"><div class="lg-dot" style="background:#c0e840"></div>Tool</div>
+  <div class="lg-item"><div class="lg-dot" style="background:#f0e040"></div>Learning</div>
+  <div class="lg-item"><div class="lg-dot" style="background:#5870f8"></div>Infra</div>
+  <div class="lg-item"><div class="lg-dot" style="background:#f07830"></div>Script</div>
+  <div class="lg-item"><div class="lg-dot" style="background:#f05060"></div>Task</div>
+</div>
+<div id="synapse-ctrl">
+  <label for="synapse-range">Synapse</label>
+  <div id="synapse-row">
+    <input type="range" id="synapse-range" min="0" max="10" value="2" step="1">
+    <span id="synapse-val">2</span>
+  </div>
+</div>
+<div id="controls">Drag to rotate<br>Scroll to zoom<br>Click node to focus<br>Click bg to reset</div>
+<div id="loading">Loading vault...</div>
+<div id="graph"></div>
+<script src="https://cdn.jsdelivr.net/npm/3d-force-graph@1"></script>
+<script>
+// Person nodes are rendered as golden Suns; all others are planets. 'core' = the central Memory Brain hub.
+const C = { memory:'#7dd8ff', project:'#ffd080', topic:'#72e8c4', idea:'#cc78ff', person:'#ffe680', client:'#e060cc', tool:'#c0e840', learning:'#f0e040', infra:'#5870f8', script:'#f07830', task:'#f05060' };
+const SPOKE_COLOR = '#ffe9a8';
+const DIM_NODE = 'rgba(140,150,180,0.08)';
+const DIM_LINK = 'rgba(140,150,180,0.04)';
+
+function drawGalaxy() {
+  const canvas = document.getElementById('galaxy');
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  [
+    { x: 0.72, y: 0.28, r: 0.42, col: '90,20,180' },
+    { x: 0.18, y: 0.65, r: 0.36, col: '20,50,160' },
+    { x: 0.50, y: 0.52, r: 0.28, col: '110,15,140' },
+    { x: 0.82, y: 0.78, r: 0.30, col: '15,70,110' },
+    { x: 0.35, y: 0.20, r: 0.25, col: '60,10,120' },
+  ].forEach(({ x, y, r, col }) => {
+    const cx = x * W, cy = y * H, rad = Math.max(W, H) * r;
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+    g.addColorStop(0,   `rgba(${col},0.45)`);
+    g.addColorStop(0.5, `rgba(${col},0.18)`);
+    g.addColorStop(1,   `rgba(${col},0)`);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+  });
+
+  for (let i = 0; i < 4500; i++) {
+    const x = Math.random() * W;
+    const y = Math.random() * H;
+    const radius = Math.random() * 0.85 + 0.1;
+    const opacity = Math.random() * 0.65 + 0.1;
+    const t = Math.random();
+    const r = Math.floor(190 + t * 65);
+    const g = Math.floor(205 + (1 - t) * 40);
+    const b = Math.floor(220 + (1 - t) * 35);
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${r},${g},${b},${opacity})`;
+    ctx.fill();
+  }
+
+  for (let i = 0; i < 3500; i++) {
+    const t  = Math.random();
+    const bx = t * W * 1.4 - W * 0.2;
+    const by = t * H * 0.6 + (Math.random() - 0.5) * H * 0.22 + H * 0.3;
+    const radius = Math.random() * 0.6 + 0.1;
+    ctx.beginPath();
+    ctx.arc(bx, by, radius, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(200,215,255,${Math.random() * 0.55 + 0.15})`;
+    ctx.fill();
+  }
+}
+
+async function init() {
+  drawGalaxy();
+  window.addEventListener('resize', drawGalaxy);
+
+  const data = await fetch('http://' + location.hostname + ':3000/graph').then(r => r.json());
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('sn').textContent = data.nodes.length;
+  document.getElementById('sl').textContent = data.links.length;
+
+  const nodes = data.nodes;
+  const ids = new Set(nodes.map(n => n.id));
+  const links = data.links.filter(l => ids.has(l.source) && ids.has(l.target));
+
+  // --- "05 - People" is the central sun/core: pin it at the origin and radiate glowing
+  // spokes out to every other top-level folder. No synthetic node — People itself is the hub.
+  // Folder roots are nodes whose id is a top-level Obsidian folder ("NN - Name", no sub-path).
+  const PEOPLE_CORE = '05 - People';
+  const folderRoots = nodes.filter(n => /^\d\d?\s*-\s/.test(n.id) && !n.id.includes('/'));
+  folderRoots.forEach(f => { f.isFolder = true; });
+  const peopleNode = nodes.find(n => n.id === PEOPLE_CORE);
+  if (peopleNode) { peopleNode.fx = 0; peopleNode.fy = 0; peopleNode.fz = 0; }
+  folderRoots.forEach(f => { if (f.id !== PEOPLE_CORE) links.push({ source: PEOPLE_CORE, target: f.id, spoke: true }); });
+
+  const idOf  = ref => (typeof ref === 'object' ? ref.id   : ref);
+  const typeOf = ref => (typeof ref === 'object' ? ref.type : (nodes.find(n => n.id === ref) || {}).type);
+
+  const neighbors = {};
+  nodes.forEach(n => neighbors[n.id] = new Set([n.id]));
+  links.forEach(l => { neighbors[l.source].add(l.target); neighbors[l.target].add(l.source); });
+
+  // BFS from every person node to compute hop distance and nearest-person anchor.
+  // Skip the decorative core spokes: they wire every folder to the core (and through it
+  // to a person), which would give every node a short path to a person and make the
+  // orbital force pull the whole graph inward. Only real vault links count here.
+  const adjList = {};
+  nodes.forEach(n => { adjList[n.id] = []; });
+  links.forEach(l => {
+    if (l.spoke) return;
+    const s = idOf(l.source), t = idOf(l.target);
+    adjList[s].push(t);
+    adjList[t].push(s);
+  });
+
+  const hopDist = {};
+  const nearestPerson = {};
+  const bfsQueue = [];
+  nodes.filter(n => n.type === 'person').forEach(p => {
+    hopDist[p.id] = 0;
+    nearestPerson[p.id] = p.id;
+    bfsQueue.push(p.id);
+  });
+  while (bfsQueue.length) {
+    const cur = bfsQueue.shift();
+    (adjList[cur] || []).forEach(nb => {
+      if (hopDist[nb] === undefined) {
+        hopDist[nb] = hopDist[cur] + 1;
+        nearestPerson[nb] = nearestPerson[cur];
+        bfsQueue.push(nb);
+      }
+    });
+  }
+  // Nodes unreachable from any person float at a large default radius
+  nodes.forEach(n => { if (hopDist[n.id] === undefined) hopDist[n.id] = 5; });
+
+  // Orbital shell target distance from nearest person: hop 1=70, hop 2=130, hop 3=190...
+  const ORBIT_BASE = 70;
+  const ORBIT_STEP = 60;
+
+  let highlight = null;
+
+  const Graph = ForceGraph3D()(document.getElementById('graph'))
+    .backgroundColor('rgba(0,0,0,0)')
+    .showNavInfo(false)
+    .graphData({ nodes, links })
+    .nodeRelSize(4)
+    .nodeVal(n => n.id === PEOPLE_CORE ? 110 : n.isFolder ? 30 : n.type === 'person' ? 48 : (n.r || 4))
+    .nodeOpacity(0.85)
+    .nodeColor(n => (highlight && !highlight.has(n.id)) ? DIM_NODE : (C[n.type] || '#c8d8f0'))
+    .nodeLabel(n =>
+      `<div style="background:rgba(4,3,18,0.95);border:1px solid rgba(200,216,240,0.08);border-radius:12px;padding:11px 15px;font-family:monospace;color:#c8d8f0;max-width:230px;">`
+      + `<div style="font-size:8px;letter-spacing:0.18em;text-transform:uppercase;color:${C[n.type] || '#c8d8f0'};margin-bottom:6px;opacity:0.8;">${n.id === PEOPLE_CORE ? '&#9728; CORE' : n.type === 'person' ? '&#9728; SUN' : (n.type || '').toUpperCase()}</div>`
+      + `<div style="font-size:13px;font-weight:500;color:rgba(240,244,255,0.9);font-family:-apple-system,sans-serif;">${n.label || n.id}</div>`
+      + `<div style="font-size:8px;color:rgba(200,216,240,0.25);margin-top:6px;">${neighbors[n.id].size - 1} connections</div>`
+      + `</div>`)
+    .linkColor(l => {
+      const base = l.spoke ? SPOKE_COLOR : (C[typeOf(l.source)] || '#8899cc');
+      if (!highlight) return base;
+      return (highlight.has(idOf(l.source)) && highlight.has(idOf(l.target))) ? base : DIM_LINK;
+    })
+    .linkOpacity(0.17)
+    .linkWidth(l => {
+      const vis = !highlight || (highlight.has(idOf(l.source)) && highlight.has(idOf(l.target)));
+      return vis ? (l.spoke ? 1.0 : 0.4) : 0.2;
+    })
+    .linkDirectionalParticles(l => l.spoke ? 4 : 2)
+    .linkDirectionalParticleSpeed(0.003)
+    .linkDirectionalParticleWidth(l => {
+      const vis = !highlight || (highlight.has(idOf(l.source)) && highlight.has(idOf(l.target)));
+      return vis ? (l.spoke ? 2.2 : 1.5) : 0;
+    })
+    .linkDirectionalParticleColor(l => l.spoke ? SPOKE_COLOR : (C[typeOf(l.source)] || '#c8d8f0'))
+    .onNodeClick(node => {
+      highlight = neighbors[node.id] || new Set([node.id]);
+      refresh();
+      const dist  = 160;
+      const ratio = 1 + dist / Math.hypot(node.x || 1, node.y || 1, node.z || 1);
+      Graph.cameraPosition({ x: (node.x || 0) * ratio, y: (node.y || 0) * ratio, z: (node.z || 0) * ratio }, node, 1400);
+    })
+    .onBackgroundClick(() => { highlight = null; clearSearch(); refresh(); });
+
+  function refresh() {
+    Graph
+      .nodeColor(Graph.nodeColor())
+      .linkColor(Graph.linkColor())
+      .linkWidth(Graph.linkWidth())
+      .linkDirectionalParticleWidth(Graph.linkDirectionalParticleWidth());
+  }
+
+  // Person (sun) nodes repel each other strongly so multiple suns space well apart
+  Graph.d3Force('charge').strength(n => n.type === 'person' ? -500 : -120);
+
+  // Orbital shell force: nudge each non-person node toward its target radius
+  // around its nearest person node each simulation tick
+  Graph.d3Force('orbital', function(alpha) {
+    const nodeMap = {};
+    nodes.forEach(n => { nodeMap[n.id] = n; });
+
+    nodes.forEach(n => {
+      if (n.type === 'person') return;
+      const pid = nearestPerson[n.id];
+      if (!pid) return;
+      const sun = nodeMap[pid];
+      if (!sun) return;
+
+      const dx = (n.x || 0) - (sun.x || 0);
+      const dy = (n.y || 0) - (sun.y || 0);
+      const dz = (n.z || 0) - (sun.z || 0);
+      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+
+      const hop    = hopDist[n.id] || 1;
+      const target = ORBIT_BASE + (hop - 1) * ORBIT_STEP;
+      const factor = (dist - target) / dist * alpha * 0.5;
+
+      n.vx -= dx * factor;
+      n.vy -= dy * factor;
+      n.vz -= dz * factor;
+    });
+  });
+
+  // Soften link force so orbital shell positioning wins.
+  // Core spokes are given ZERO strength so they're drawn as purely visual lines and
+  // exert no pull — the folders keep their natural spread instead of bunching at the core.
+  // (We keep them in the force's link set; removing them via .links() re-inits the force
+  // before string IDs resolve to node objects and NaNs out every unpinned node.)
+  Graph.d3Force('link')
+    .distance(l => {
+      const st = typeOf(l.source), tt = typeOf(l.target);
+      return (st === 'person' || tt === 'person') ? 75 : 50;
+    })
+    .strength(l => l.spoke ? 0 : 0.15);
+
+  // Auto-rotation: slowly orbit the camera around the Y axis.
+  // Pauses 2 seconds after any user interaction, then resumes from wherever the camera is.
+  (function() {
+    let lastInteraction = 0;
+    const el = document.getElementById('graph');
+    ['mousedown', 'wheel', 'touchstart'].forEach(ev =>
+      el.addEventListener(ev, () => { lastInteraction = Date.now(); }, { passive: true })
+    );
+    setInterval(() => {
+      if (Date.now() - lastInteraction < 2000) return;
+      const cam = Graph.camera();
+      const { x, y, z } = cam.position;
+      const dist = Math.sqrt(x * x + z * z);
+      if (dist < 1) return;
+      const theta = Math.atan2(x, z) + 0.001;
+      Graph.cameraPosition({ x: dist * Math.sin(theta), y, z: dist * Math.cos(theta) });
+    }, 16);
+  })();
+
+  window.addEventListener('resize', () => Graph.width(window.innerWidth).height(window.innerHeight));
+
+  // --- Neural synapses: spontaneous firing cascades ripple across the network ---
+  // Map every node id to the link objects touching it, so a node can fire pulses
+  // down all of its connections. (link.source/target are node objects post-engine.)
+  const linkMap = {};
+  links.forEach(l => {
+    const s = idOf(l.source), t = idOf(l.target);
+    (linkMap[s] = linkMap[s] || []).push(l);
+    (linkMap[t] = linkMap[t] || []).push(l);
+  });
+
+  // Tunables: interval = ms between spontaneous firings; fanout = chance a given
+  // link of a firing node lights up; spread = chance a neighbour fires onward;
+  // maxDepth = how many hops a cascade can propagate.
+  const SYNAPSE = { interval: 1300, fanout: 0.6, spread: 0.4, maxDepth: 3 };
+
+  function fireNode(id, depth) {
+    const ls = linkMap[id];
+    if (!ls) return;
+    ls.forEach(l => {
+      // Respect search/focus dimming — only fire currently-visible links
+      if (highlight && !(highlight.has(idOf(l.source)) && highlight.has(idOf(l.target)))) return;
+      if (Math.random() < SYNAPSE.fanout) Graph.emitParticle(l);
+    });
+    if (depth <= 0) return;
+    ls.forEach(l => {
+      const other = idOf(l.source) === id ? idOf(l.target) : idOf(l.source);
+      if (Math.random() < SYNAPSE.spread) {
+        setTimeout(() => fireNode(other, depth - 1), 240 + Math.random() * 200);
+      }
+    });
+  }
+
+  setInterval(() => {
+    if (!nodes.length) return;
+    fireNode(nodes[Math.floor(Math.random() * nodes.length)].id, SYNAPSE.maxDepth);
+  }, SYNAPSE.interval);
+
+  // --- Synapse brightness slider: 0 = invisible, 10 = same opacity as nodes (0.85) ---
+  const synapseRange = document.getElementById('synapse-range');
+  const synapseValEl = document.getElementById('synapse-val');
+  synapseRange.addEventListener('input', () => {
+    const v = +synapseRange.value;
+    synapseValEl.textContent = v;
+    Graph.linkOpacity(v / 10 * 0.85);
+  });
+
+  // --- Search: highlight matching nodes, Enter flies the camera to the first match ---
+  const searchBox = document.getElementById('search');
+  const searchCount = document.getElementById('searchcount');
+
+  function matchesFor(q) {
+    return nodes.filter(n => (n.label || n.id || '').toLowerCase().includes(q));
+  }
+  function clearSearch() {
+    if (searchBox.value) searchBox.value = '';
+    searchCount.textContent = '';
+  }
+  function flyTo(node) {
+    const dist  = 160;
+    const ratio = 1 + dist / Math.hypot(node.x || 1, node.y || 1, node.z || 1);
+    Graph.cameraPosition({ x: (node.x || 0) * ratio, y: (node.y || 0) * ratio, z: (node.z || 0) * ratio }, node, 1400);
+  }
+
+  searchBox.addEventListener('input', () => {
+    const q = searchBox.value.trim().toLowerCase();
+    if (!q) { highlight = null; searchCount.textContent = ''; refresh(); return; }
+    const matched = matchesFor(q);
+    highlight = new Set(matched.map(n => n.id));
+    searchCount.textContent = matched.length + (matched.length === 1 ? ' match' : ' matches');
+    refresh();
+  });
+  searchBox.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      const m = matchesFor(searchBox.value.trim().toLowerCase())[0];
+      if (m) flyTo(m);
+    } else if (e.key === 'Escape') {
+      clearSearch(); highlight = null; refresh(); searchBox.blur();
+    }
+  });
+}
+
+init();
+</script>
+</body>
+</html>

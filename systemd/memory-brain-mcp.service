@@ -1,0 +1,15 @@
+[Unit]
+Description=Memory Brain MCP Server
+After=network.target
+
+[Service]
+Type=simple
+User=YOUR_USER
+WorkingDirectory=/path/to/memory-brain-graph/server
+Environment=VAULT_PATH=/path/to/your/obsidian-vault
+ExecStart=/usr/bin/node index.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

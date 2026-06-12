@@ -1,0 +1,50 @@
+{
+  "name": "memory-brain-graph-app",
+  "version": "1.0.0",
+  "description": "Memory Brain — standalone Windows desktop app for the 3D graph viewer",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack:portable": "electron-builder --win portable",
+    "pack:installer": "electron-builder --win nsis",
+    "pack:both": "electron-builder --win portable nsis"
+  },
+  "build": {
+    "appId": "com.memorybrain.graphviewer",
+    "productName": "Memory Brain",
+    "copyright": "Copyright 2026",
+    "files": [
+      "main.js",
+      "preload.js",
+      "error.html",
+      "config.json"
+    ],
+    "extraResources": [
+      {
+        "from": "config.json",
+        "to": "../config.json"
+      }
+    ],
+    "win": {
+      "target": [
+        { "target": "portable", "arch": ["x64"] },
+        { "target": "nsis",     "arch": ["x64"] }
+      ]
+    },
+    "portable": {
+      "artifactName": "MemoryBrain-${version}-portable.exe"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Memory Brain",
+      "artifactName": "MemoryBrain-${version}-setup.exe"
+    }
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^26.0.0"
+  }
+}
