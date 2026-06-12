@@ -255,8 +255,7 @@ async function init() {
     const node = nodes.find(n => n.isFolder && n.type === type)
               || nodes.find(n => n.type === type);
     if (!node) return;
-    controls.autoRotate = false;
-    clearTimeout(rotationTimer);
+    lastInteraction = Date.now();
     highlight = neighbors[node.id] || new Set([node.id]);
     refresh();
     const dist  = 160;
@@ -266,7 +265,6 @@ async function init() {
       { x: node.x || 0, y: node.y || 0, z: node.z || 0 },
       1400
     );
-    rotationTimer = setTimeout(() => { controls.autoRotate = true; }, 3500);
   });
 
   // Person (sun) nodes repel each other strongly so multiple suns space well apart
@@ -314,23 +312,29 @@ async function init() {
 
   // Auto-rotation: slowly orbit the camera around the Y axis.
   // Pauses 2 seconds after any user interaction, then resumes from wherever the camera is.
-  // Auto-rotation via OrbitControls' own autoRotate — always orbits around controls.target,
-  // so it correctly follows whichever node the camera is currently looking at.
-  const controls = Graph.controls();
-  controls.autoRotate      = true;
-  controls.autoRotateSpeed = 0.4;
-
-  let rotationTimer = null;
-  function pauseRotation() {
-    controls.autoRotate = false;
-    clearTimeout(rotationTimer);
-    rotationTimer = setTimeout(() => { controls.autoRotate = true; }, 2000);
-  }
-
+  // Auto-rotation: orbit around whatever the camera is currently looking at.
+  // Uses setInterval + explicit lookAt so it works even when the render loop is paused.
+  let lastInteraction = 0;
+  let rotationTimer   = null;
   const graphEl = document.getElementById('graph');
   ['mousedown', 'wheel', 'touchstart'].forEach(ev =>
-    graphEl.addEventListener(ev, pauseRotation, { passive: true })
+    graphEl.addEventListener(ev, () => { lastInteraction = Date.now(); }, { passive: true })
   );
+  setInterval(() => {
+    if (Date.now() - lastInteraction < 2000) return;
+    const controls = Graph.controls();
+    const target   = controls.target;
+    const { x, y, z } = Graph.camera().position;
+    const dx   = x - target.x;
+    const dz   = z - target.z;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    if (dist < 1) return;
+    const theta = Math.atan2(dx, dz) + 0.001;
+    Graph.cameraPosition(
+      { x: target.x + dist * Math.sin(theta), y, z: target.z + dist * Math.cos(theta) },
+      { x: target.x, y: target.y, z: target.z }
+    );
+  }, 16);
 
   window.addEventListener('resize', () => Graph.width(window.innerWidth).height(window.innerHeight));
 
